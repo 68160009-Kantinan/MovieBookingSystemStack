@@ -1,125 +1,110 @@
-import java.util.ArrayList;
+import java.util.InputMismatchException;
 import java.util.Scanner;
+import java.util.Stack; // นำเข้าไลบรารี Stack เพื่อทำระบบ Undo
 
 public class Main {
 
-    // =========================================================================
-    // [ส่วนที่ 1] รับผิดชอบโดย: คนที่ 1 (จัดการโครงสร้างข้อมูล ArrayList และเมนูหลัก)
-    // =========================================================================
+    // =====================================================================================
+    // [ส่วนที่ 1: Intro & Concept] - โครงสร้างข้อมูลพื้นฐาน (Array 1D, 3D และ Stack)
+    // =====================================================================================
 
-    // เปลี่ยนมาใช้ ArrayList สำหรับเก็บข้อมูลที่สามารถยืดหดได้
-    static ArrayList<String> movies = new ArrayList<>();
-    static ArrayList<String> showtimes = new ArrayList<>();
-    static ArrayList<Double> prices = new ArrayList<>();
+    static String[] movies = {"Avenger: Endgame", "Inception", "Interstellar"};
+    static double[] prices = {250.0, 200.0, 180.0};
+    static String[] showtimes = {"13:00", "15:30", "19:00"};
 
-    // ผังที่นั่งใช้ ArrayList เก็บ Array 2 มิติ (เพื่อให้จัดการง่าย ไม่ซับซ้อนเกินไป)
-    static ArrayList<boolean[][]> bookedSeats = new ArrayList<>();
+    static final int ROWS = 5;
+    static final int COLS = 10;
 
-    // Method สำหรับเตรียมข้อมูลเริ่มต้น (อธิบายอาจารย์ว่าเราใช้ .add() เพิ่มข้อมูล)
-    public static void setupData() {
-        movies.add("Avenger: Endgame");
-        showtimes.add("13:00");
-        prices.add(250.00);
-        bookedSeats.add(new boolean[5][10]); // สร้างผังที่นั่ง 5 แถว 10 คอลัมน์ ให้หนังเรื่องที่ 1
+    // 3D Array เก็บผังที่นั่ง: [หนังเรื่องไหน][แถวไหน][คอลัมน์ไหน]
+    static char[][][] seats = new char[movies.length][ROWS][COLS];
+    static char[] rowLabels = {'A', 'B', 'C', 'D', 'E'};
 
-        movies.add("Inception");
-        showtimes.add("15:30");
-        prices.add(200.00);
-        bookedSeats.add(new boolean[5][10]); // สร้างผังที่นั่งให้หนังเรื่องที่ 2
+    // [ไฮไลท์ใหม่] Stack สำหรับทำระบบ Undo (ยกเลิกการจองล่าสุด)
+    // Stack ทำงานแบบ LIFO (Last-In, First-Out) คือข้อมูลที่ใส่เข้าไปล่าสุด จะถูกดึงออกมาก่อนเพื่อน
+    // เราจะเก็บข้อมูลเป็น String เช่น "0,0,0,A1" เพื่อจำว่าเพิ่งจองพิกัดไหนไป
+    static Stack<String> bookingHistory = new Stack<>();
 
-        movies.add("Interstellar");
-        showtimes.add("19:00");
-        prices.add(180.00);
-        bookedSeats.add(new boolean[5][10]); // สร้างผังที่นั่งให้หนังเรื่องที่ 3
-    }
+
+    // =====================================================================================
+    // [ส่วนที่ 2: Logic & Algorithm] - ภาพรวมระบบ, การเริ่มต้นผังที่นั่ง และเมนู
+    // =====================================================================================
 
     public static void main(String[] args) {
-        setupData(); // โหลดข้อมูลหนังเข้าระบบก่อนเริ่มโปรแกรม
-
-        Scanner input = new Scanner(System.in);
+        initializeSeats(); // เซ็ตให้ที่นั่งทุกช่องเป็น 'O'
+        Scanner scanner = new Scanner(System.in);
         boolean isRunning = true;
 
+        System.out.println("=======================================");
+        System.out.println("   Welcome to Cinema Booking System");
+        System.out.println("=======================================");
+
         while (isRunning) {
-            System.out.println("\n=======================================");
-            System.out.println("   Welcome to Cinema Booking System");
-            System.out.println("=======================================");
-            System.out.println("--- Main Menu ---");
-            System.out.println("1. View Movies (ดูรายชื่อหนังและรอบฉาย)");
+            System.out.println("\n--- Main Menu ---");
+            System.out.println("1. View Movies (ดูรายชื่อหนัง)");
             System.out.println("2. View Seats (ดูผังที่นั่ง)");
             System.out.println("3. Book Ticket(s) (จองตั๋ว)");
-            System.out.println("4. Exit (ออกจากระบบ)");
-            System.out.print("Please select an option (1-4): ");
+            System.out.println("4. Undo Last Booking (ยกเลิกการจองล่าสุด)"); // เมนูใหม่สำหรับ Stack
+            System.out.println("5. Exit (ออกจากระบบ)");
 
-            int choice = input.nextInt();
+            int choice = getValidInput(scanner, "Please select an option (1-5): ", 1, 5);
 
             switch (choice) {
-                case 1:
-                    viewMovies();
-                    break;
-                case 2:
-                    viewSeatsFlow(input);
-                    break;
-                case 3:
-                    bookTicketFlow(input);
-                    break;
-                case 4:
+                case 1: displayMovies(); break;
+                case 2: viewSeatsMenu(scanner); break;
+                case 3: bookTicket(scanner); break;
+                case 4: undoBooking(); break; // เรียกใช้ระบบ Undo
+                case 5:
+                    System.out.println("Thank you for using our system. Goodbye!");
                     isRunning = false;
-                    System.out.println("\nThank you for using the system. Goodbye!");
                     break;
-                default:
-                    System.out.println("\n[Error] Invalid option. Please try again.");
+            }
+        }
+        scanner.close();
+    }
+
+    // ลอจิกการเคลียร์ผังที่นั่ง (Nested Loop 3 ชั้น เข้าถึง 3D Array)
+    public static void initializeSeats() {
+        for (int m = 0; m < movies.length; m++) {
+            for (int i = 0; i < ROWS; i++) {
+                for (int j = 0; j < COLS; j++) {
+                    seats[m][i][j] = 'O';
+                }
             }
         }
     }
 
-    public static void viewMovies() {
+    // ลอจิกการโชว์รายชื่อหนัง ดึงจาก 1D Array 3 ตัว (ชื่อ, เวลา, ราคา) มาแสดงพร้อมกัน
+    public static void displayMovies() {
         System.out.println("\n--- Now Showing ---");
-        // ArrayList ใช้ .size() แทน .length
-        for (int i = 0; i < movies.size(); i++) {
-            // ArrayList ใช้ .get(i) ดึงข้อมูล แทนการใช้ [i]
+        for (int i = 0; i < movies.length; i++) {
             System.out.printf("%d. %s | Showtime: %s | %.2f THB\n",
-                    (i + 1), movies.get(i), showtimes.get(i), prices.get(i));
+                    (i + 1), movies[i], showtimes[i], prices[i]);
         }
     }
 
-    // =========================================================================
-    // [ส่วนที่ 2] รับผิดชอบโดย: คนที่ 2 (จัดการระบบแสดงผล UI และผังที่นั่ง)
-    // =========================================================================
-
-    public static void viewSeatsFlow(Scanner input) {
-        viewMovies();
-        System.out.print("Select a movie to view seats (1-" + movies.size() + "): ");
-        int movieChoice = input.nextInt();
-
-        int movieIndex = movieChoice - 1;
-        if (movieIndex >= 0 && movieIndex < movies.size()) {
-            displaySeats(movieIndex);
-        } else {
-            System.out.println("[Error] Invalid movie selection.");
-        }
+    public static void viewSeatsMenu(Scanner scanner) {
+        displayMovies();
+        int movieChoice = getValidInput(scanner, "Select a movie to view seats (1-" + movies.length + "): ", 1, movies.length);
+        displaySeats(movieChoice - 1);
     }
 
+    // ลอจิกการวาดผังที่นั่ง
     public static void displaySeats(int movieIndex) {
-        System.out.println("\n--- Screen for: " + movies.get(movieIndex) + " (" + showtimes.get(movieIndex) + ") ---");
-
+        System.out.println("\n--- Screen for: " + movies[movieIndex] + " (" + showtimes[movieIndex] + ") ---");
         System.out.print("     ");
-        for (int i = 1; i <= 10; i++) {
-            System.out.print(i + "   ");
+
+        for (int j = 1; j <= COLS; j++) {
+            System.out.printf("%-4d", j);
         }
         System.out.println();
 
-        char[] rows = {'A', 'B', 'C', 'D', 'E'};
-
-        // ดึงผังที่นั่งของหนังเรื่องนั้นๆ ออกมาจาก ArrayList ก่อน
-        boolean[][] currentSeats = bookedSeats.get(movieIndex);
-
-        for (int r = 0; r < 5; r++) {
-            System.out.print(rows[r] + "  ");
-            for (int c = 0; c < 10; c++) {
-                if (currentSeats[r][c]) {
-                    System.out.print("[X] "); // จองแล้ว
+        for (int i = 0; i < ROWS; i++) {
+            System.out.print(rowLabels[i] + "   ");
+            for (int j = 0; j < COLS; j++) {
+                if (seats[movieIndex][i][j] == 'O') {
+                    System.out.print("[ ] ");
                 } else {
-                    System.out.print("[ ] "); // ว่าง
+                    System.out.print("[X] ");
                 }
             }
             System.out.println();
@@ -127,102 +112,168 @@ public class Main {
         System.out.println("Legend: '[ ]' = Available | '[X]' = Booked");
     }
 
-    // =========================================================================
-    // [ส่วนที่ 3] รับผิดชอบโดย: คนที่ 3 (จัดการตรรกะการจอง, ดักจับบัค และพิมพ์ใบเสร็จ)
-    // =========================================================================
 
-    public static void bookTicketFlow(Scanner input) {
+    // =====================================================================================
+    // [ส่วนที่ 3: Live Coding & Demo] - ระบบจองตั๋ว (Push) และ ระบบยกเลิก (Pop)
+    // =====================================================================================
+
+    public static void bookTicket(Scanner scanner) {
         System.out.println("\n--- Book Ticket(s) ---");
-        viewMovies();
-        System.out.print("Select a movie (1-" + movies.size() + "): ");
-        int movieChoice = input.nextInt();
-
+        displayMovies();
+        int movieChoice = getValidInput(scanner, "Select a movie (1-" + movies.length + "): ", 1, movies.length);
         int movieIndex = movieChoice - 1;
-        if (movieIndex < 0 || movieIndex >= movies.size()) {
-            System.out.println("[Error] Invalid movie selection.");
-            return;
-        }
 
         displaySeats(movieIndex);
+        scanner.nextLine();
 
-        input.nextLine();
-        System.out.print("\nSelect your seat(s) separated by space (e.g., A1 A2 B1) or type '0' to cancel: ");
-        String seatInput = input.nextLine();
+        System.out.print("\nSelect your seat(s) separated by space (e.g., A1 A2) or type '0' to cancel: ");
+        String rawInput = scanner.nextLine().trim().toUpperCase();
 
-        if (seatInput.trim().equals("0")) {
-            System.out.println("Booking cancelled.");
+        if (rawInput.equals("0")) {
+            System.out.println("Booking cancelled. Returning to Main Menu...");
             return;
         }
 
-        processBooking(movieIndex, seatInput);
-    }
+        // หั่นข้อความด้วยลูกน้ำ (,) หรือ ช่องว่าง (Space) ก็ได้
+        String[] requestedSeats = rawInput.split("[,\\s]+");
 
-    public static void processBooking(int movieIndex, String seatInput) {
-        String cleanInput = seatInput.replace(",", " ").trim();
-        String[] seatsToBook = cleanInput.split("\\s+");
-
-        String successList = "";
-        String failList = "";
         int successCount = 0;
-        double totalPrice = 0;
+        String bookedSeatsList = "";
+        String failedSeatsList = "";
 
-        // ดึงผังที่นั่งของหนังเรื่องที่เลือกมาจัดการ
-        boolean[][] currentSeats = bookedSeats.get(movieIndex);
+        for (int s = 0; s < requestedSeats.length; s++) {
+            String seatInput = requestedSeats[s];
 
-        for (int i = 0; i < seatsToBook.length; i++) {
-            String seat = seatsToBook[i].toUpperCase();
-            if (seat.isEmpty()) continue;
+            if (seatInput.length() >= 2) {
+                char rowChar = seatInput.charAt(0);
+                int rIndex = -1;
 
-            if (seat.length() < 2) {
-                failList += seat + " (Invalid Format), ";
-                continue;
-            }
+                for (int i = 0; i < rowLabels.length; i++) {
+                    if (rowLabels[i] == rowChar) {
+                        rIndex = i;
+                        break;
+                    }
+                }
 
-            char rowChar = seat.charAt(0);
-            int r = rowChar - 'A';
-            int c = -1;
+                if (rIndex != -1) {
+                    try {
+                        int colNum = Integer.parseInt(seatInput.substring(1));
+                        int cIndex = colNum - 1;
 
-            try {
-                c = Integer.parseInt(seat.substring(1)) - 1;
-            } catch (Exception e) {
-                failList += seat + " (Invalid Number), ";
-                continue;
-            }
+                        if (colNum >= 1 && colNum <= COLS) {
+                            if (seats[movieIndex][rIndex][cIndex] == 'O') {
 
-            if (r >= 0 && r < 5 && c >= 0 && c < 10) {
-                if (!currentSeats[r][c]) {
-                    currentSeats[r][c] = true; // อัปเดตสถานะการจอง
-                    successList += seat + " ";
-                    successCount++;
-                    totalPrice += prices.get(movieIndex); // ดึงราคาจาก ArrayList
+                                seats[movieIndex][rIndex][cIndex] = 'X'; // เปลี่ยนเป็นจองแล้ว
+                                bookedSeatsList += seatInput + " ";
+                                successCount++;
+
+                                // =======================================================
+                                // [หัวใจของ Stack: PUSH] เมื่อจองสำเร็จ ให้บันทึกประวัติ
+                                // เก็บรูปแบบเป็น String: "เลขหนัง,เลขแถว,เลขคอลัมน์,ชื่อที่นั่ง"
+                                // เช่น "0,0,0,A1" แล้วโยน (Push) ลงไปเก็บบนสุดของ Stack
+                                // =======================================================
+                                String historyRecord = movieIndex + "," + rIndex + "," + cIndex + "," + seatInput;
+                                bookingHistory.push(historyRecord);
+
+                            } else {
+                                failedSeatsList += seatInput + "(Booked) ";
+                            }
+                        } else {
+                            failedSeatsList += seatInput + "(Invalid) ";
+                        }
+                    } catch (NumberFormatException e) {
+                        failedSeatsList += seatInput + "(Error) ";
+                    }
                 } else {
-                    failList += seat + " (Already Booked), ";
+                    failedSeatsList += seatInput + "(Invalid) ";
                 }
             } else {
-                failList += seat + " (Not Found), ";
+                failedSeatsList += seatInput + "(Error) ";
             }
         }
 
-        // พิมพ์ใบเสร็จ
         System.out.println("\n=======================================");
-        System.out.println("            Booking Summary");
+        System.out.println("           Booking Summary");
         System.out.println("=======================================");
-        System.out.println("Movie: " + movies.get(movieIndex));
-        System.out.println("Showtime: " + showtimes.get(movieIndex));
-
         if (successCount > 0) {
-            System.out.println("Successfully Booked: " + successList);
-            System.out.println("Total Tickets: " + successCount);
-            System.out.printf("Total Price: %.2f THB\n", totalPrice);
+            double totalCost = successCount * prices[movieIndex];
+            System.out.printf("Movie: %s\n", movies[movieIndex]);
+            System.out.printf("Showtime: %s\n", showtimes[movieIndex]);
+            System.out.printf("Successfully Booked: %s\n", bookedSeatsList);
+            System.out.printf("Total Tickets: %d\n", successCount);
+            System.out.printf("Total Price: %.2f THB\n", totalCost);
         } else {
-            System.out.println("Successfully Booked: None");
+            System.out.println("Status: No tickets were booked successfully.");
         }
 
-        if (!failList.isEmpty()) {
+        if (!failedSeatsList.isEmpty()) {
             System.out.println("---------------------------------------");
-            System.out.println("[Warning] Failed to book: " + failList);
-            System.out.println("Please check seat availability and try again.");
+            System.out.println("[Warning] Failed to book: " + failedSeatsList);
         }
+        System.out.println("=======================================\n");
+    }
+
+    // เมธอดสำหรับ Undo (ดึงข้อมูลล่าสุดออกมาคืนค่า)
+    public static void undoBooking() {
+        System.out.println("\n--- Undo Last Booking ---");
+
+        // 1. เช็คก่อนว่ากล่อง Stack ว่างไหม (มีประวัติให้ลบหรือเปล่า?)
+        if (bookingHistory.isEmpty()) {
+            System.out.println("[Info] No booking history to undo. (ไม่มีประวัติการจองให้ยกเลิก)");
+            return;
+        }
+
+        // =======================================================
+        // 2. [หัวใจของ Stack: POP] ดึงข้อมูลใบบนสุด (ล่าสุด) ออกมา
+        // เช่น ดึง "0,0,0,A1" ออกมา และข้อมูลนั้นจะถูกลบออกจาก Stack ด้วย
+        // =======================================================
+        String lastBooking = bookingHistory.pop();
+
+        // 3. หั่นข้อความด้วยลูกน้ำ (,) คืนมาเป็น Array 4 ช่อง เพื่อเอา Index กลับมาใช้งาน
+        String[] data = lastBooking.split(",");
+        int mIndex = Integer.parseInt(data[0]); // เลขหนัง
+        int rIndex = Integer.parseInt(data[1]); // เลขแถว
+        int cIndex = Integer.parseInt(data[2]); // เลขคอลัมน์
+        String seatName = data[3];              // ชื่อที่นั่ง (เช่น A1)
+
+        // 4. เข้าไปใน 3D Array พิกัดเดิม แล้วคืนสถานะจาก 'X' กลับให้เป็น 'O' (ว่าง)
+        seats[mIndex][rIndex][cIndex] = 'O';
+
         System.out.println("=======================================");
+        System.out.println("        Undo Successful!");
+        System.out.println("=======================================");
+        System.out.printf("Cancelled Seat: %s\n", seatName);
+        System.out.printf("Movie: %s\n", movies[mIndex]);
+        System.out.println("Status: The seat is now available.");
+        System.out.println("=======================================\n");
+    }
+
+
+    // =====================================================================================
+    // [ส่วนที่ 4: Discussion & Conclusion] - Error Handling
+    // การป้องกันไม่ให้โปรแกรมพัง (Crash) ด้วยการใช้ try-catch
+    // =====================================================================================
+
+    public static int getValidInput(Scanner scanner, String prompt, int min, int max) {
+        int input = -1;
+        boolean isValid = false;
+
+        while (!isValid) {
+            System.out.print(prompt);
+            try {
+                input = scanner.nextInt();
+                // ป้องกัน Index Out of Bounds
+                if (input >= min && input <= max) {
+                    isValid = true;
+                } else {
+                    System.out.println("[Error] Please enter a number between " + min + " and " + max + ".");
+                }
+            } catch (InputMismatchException e) {
+                // ดักจับกรณีผู้ใช้พิมพ์ตัวอักษรแทนตัวเลข
+                System.out.println("[Error] Invalid input. Please enter numbers only.");
+                scanner.next();
+            }
+        }
+        return input;
     }
 }
